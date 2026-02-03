@@ -12,6 +12,22 @@ on:
         description: 'Specific OptiScaler version to use (e.g., v0.7.7-pre12, nightly, latest, or leave empty for auto-detect both)'
         required: false
         default: ''
+      optiscaler_download_url:
+        description: 'Direct download URL for OptiScaler package (overrides version if specified)'
+        required: false
+        default: ''
+      custom_filename:
+        description: 'Custom filename for OptiScaler package (optional, extracted from URL if not provided)'
+        required: false
+        default: ''
+      custom_version:
+        description: 'Custom version tag for release naming (optional, extracted from filename if not provided)'
+        required: false
+        default: ''
+      build_type:
+        description: 'Build type (nightly, latest, or custom)'
+        required: false
+        default: 'custom'
       force_build:
         description: 'Force build even if no new version'
         type: boolean
@@ -39,12 +55,16 @@ jobs:
     outputs:
       should_build_nightly: ${{ steps.version_check.outputs.should_build_nightly }}
       should_build_latest: ${{ steps.version_check.outputs.should_build_latest }}
+      should_build_custom: ${{ steps.version_check.outputs.should_build_custom }}
       nightly_version: ${{ steps.version_check.outputs.nightly_version }}
       nightly_download_url: ${{ steps.version_check.outputs.nightly_download_url }}
       nightly_filename: ${{ steps.version_check.outputs.nightly_filename }}
       latest_version: ${{ steps.version_check.outputs.latest_version }}
       latest_download_url: ${{ steps.version_check.outputs.latest_download_url }}
       latest_filename: ${{ steps.version_check.outputs.latest_filename }}
+      custom_version: ${{ steps.version_check.outputs.custom_version }}
+      custom_download_url: ${{ steps.version_check.outputs.custom_download_url }}
+      custom_filename: ${{ steps.version_check.outputs.custom_filename }}
     
     steps:
     - name: Checkout repository
@@ -120,27 +140,86 @@ jobs:
             }
         }
 
-        # Determine build types to check
+        # Get all inputs
         $specificVersion = "${{ github.event.inputs.optiscaler_version }}"
+        $customDownloadUrl = "${{ github.event.inputs.optiscaler_download_url }}"
+        $customFilename = "${{ github.event.inputs.custom_filename }}"
+        $customVersionTag = "${{ github.event.inputs.custom_version }}"
+        $buildType = "${{ github.event.inputs.build_type }}"
         $forceValue = "${{ github.event.inputs.force_build }}"
         $isScheduledRun = "${{ github.event_name }}" -eq "schedule"
         
+        # Initialize outputs
         $shouldBuildNightly = $false
         $shouldBuildLatest = $false
+        $shouldBuildCustom = $false
         $nightlyVersion = ""
         $nightlyDownloadUrl = ""
         $nightlyFilename = ""
         $latestVersion = ""
         $latestDownloadUrl = ""
         $latestFilename = ""
+        $customVersion = ""
+        $customDownloadUrlOut = ""
+        $customFilenameOut = ""
 
         Write-Host "Event: ${{ github.event_name }}"
         Write-Host "Specific version: $specificVersion"
+        Write-Host "Custom download URL: $customDownloadUrl"
+        Write-Host "Custom filename: $customFilename"
+        Write-Host "Custom version: $customVersionTag"
+        Write-Host "Build type: $buildType"
         Write-Host "Force build: $forceValue"
         Write-Host "Scheduled run: $isScheduledRun"
 
+        # Handle custom download URL (highest priority)
+        if ($customDownloadUrl -and $customDownloadUrl -ne "") {
+            Write-Host "Custom download URL specified: $customDownloadUrl"
+            
+            # Determine filename
+            if ($customFilename -and $customFilename -ne "") {
+                $customFilenameOut = $customFilename
+            } else {
+                # Extract filename from URL
+                try {
+                    $uri = [System.Uri]$customDownloadUrl
+                    $customFilenameOut = [System.IO.Path]::GetFileName($uri.LocalPath)
+                    Write-Host "Extracted filename from URL: $customFilenameOut"
+                } catch {
+                    Write-Host "Could not extract filename from URL, using default"
+                    $customFilenameOut = "OptiScaler_custom.7z"
+                }
+            }
+            
+            # Determine version
+            if ($customVersionTag -and $customVersionTag -ne "") {
+                $customVersion = $customVersionTag
+            } else {
+                # Try to extract version from filename
+                if ($customFilenameOut -match "OptiScaler_(.+)\.(?:7z|zip)$") {
+                    $customVersion = $matches[1]
+                } elseif ($customFilenameOut -match "OptiScaler\.(?:7z|zip)$") {
+                    $customVersion = "custom"
+                } else {
+                    $customVersion = "custom_" + (Get-Date -Format "yyyyMMdd")
+                }
+                Write-Host "Extracted version from filename: $customVersion"
+            }
+            
+            $customDownloadUrlOut = $customDownloadUrl
+            $shouldBuildCustom = $true
+            
+            Write-Host "Custom build configured:"
+            Write-Host "  Version: $customVersion"
+            Write-Host "  URL: $customDownloadUrlOut"
+            Write-Host "  Filename: $customFilenameOut"
+            
+            # Skip GitHub API checks for custom URL
+            $shouldBuildNightly = $false
+            $shouldBuildLatest = $false
+        }
         # Handle specific version request (manual workflow_dispatch with specific version)
-        if ($specificVersion -and $specificVersion -ne "" -and $specificVersion -ne "nightly" -and $specificVersion -ne "latest") {
+        elseif ($specificVersion -and $specificVersion -ne "" -and $specificVersion -ne "nightly" -and $specificVersion -ne "latest") {
             Write-Host "Checking specific version: $specificVersion"
             $release = Get-GitHubRelease -repo "$env:OPTISCALER_REPO" -tag $specificVersion
             if ($release) {
@@ -249,28 +328,34 @@ jobs:
         # Output results
         echo "should_build_nightly=$($shouldBuildNightly.ToString().ToLower())" >> $env:GITHUB_OUTPUT
         echo "should_build_latest=$($shouldBuildLatest.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+        echo "should_build_custom=$($shouldBuildCustom.ToString().ToLower())" >> $env:GITHUB_OUTPUT
         echo "nightly_version=$nightlyVersion" >> $env:GITHUB_OUTPUT
         echo "nightly_download_url=$nightlyDownloadUrl" >> $env:GITHUB_OUTPUT
         echo "nightly_filename=$nightlyFilename" >> $env:GITHUB_OUTPUT
         echo "latest_version=$latestVersion" >> $env:GITHUB_OUTPUT
         echo "latest_download_url=$latestDownloadUrl" >> $env:GITHUB_OUTPUT
         echo "latest_filename=$latestFilename" >> $env:GITHUB_OUTPUT
+        echo "custom_version=$customVersion" >> $env:GITHUB_OUTPUT
+        echo "custom_download_url=$customDownloadUrlOut" >> $env:GITHUB_OUTPUT
+        echo "custom_filename=$customFilenameOut" >> $env:GITHUB_OUTPUT
 
         Write-Host "=== Summary ==="
         Write-Host "Should build nightly: $shouldBuildNightly ($nightlyVersion)"
         Write-Host "Should build latest: $shouldBuildLatest ($latestVersion)"
+        Write-Host "Should build custom: $shouldBuildCustom ($customVersion)"
         if ($shouldBuildNightly) { Write-Host "Nightly filename: $nightlyFilename" }
         if ($shouldBuildLatest) { Write-Host "Latest filename: $latestFilename" }
+        if ($shouldBuildCustom) { Write-Host "Custom filename: $customFilenameOut" }
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-installer:
     needs: check-versions
-    if: needs.check-versions.outputs.should_build_nightly == 'true' || needs.check-versions.outputs.should_build_latest == 'true'
+    if: needs.check-versions.outputs.should_build_nightly == 'true' || needs.check-versions.outputs.should_build_latest == 'true' || needs.check-versions.outputs.should_build_custom == 'true'
     runs-on: windows-latest
     strategy:
       matrix:
-        build_type: ["nightly", "latest"]
+        build_type: ${{ fromJSON(needs.check-versions.outputs.should_build_custom == 'true' && '["custom"]' || needs.check-versions.outputs.should_build_nightly == 'true' && needs.check-versions.outputs.should_build_latest == 'true' && '["nightly", "latest"]' || needs.check-versions.outputs.should_build_nightly == 'true' && '["nightly"]' || '["latest"]') }}
       fail-fast: false
     
     name: Build ${{ matrix.build_type }} installer
@@ -280,15 +365,13 @@ jobs:
       
     steps:
     - name: Checkout repository
-      if: (matrix.build_type == 'nightly' && needs.check-versions.outputs.should_build_nightly == 'true') || (matrix.build_type == 'latest' && needs.check-versions.outputs.should_build_latest == 'true')
       uses: actions/checkout@v4
 
     - name: Setup 7-Zip
-      if: (matrix.build_type == 'nightly' && needs.check-versions.outputs.should_build_nightly == 'true') || (matrix.build_type == 'latest' && needs.check-versions.outputs.should_build_latest == 'true')
       uses: milliewalky/setup-7-zip@v2
 
     - name: Cache OptiScaler download
-      if: (matrix.build_type == 'nightly' && needs.check-versions.outputs.should_build_nightly == 'true') || (matrix.build_type == 'latest' && needs.check-versions.outputs.should_build_latest == 'true')
+      if: matrix.build_type != 'custom'
       uses: actions/cache@v4
       id: cache-optiscaler
       with:
@@ -300,27 +383,41 @@ jobs:
           Dll version/amd_fidelityfx_vk.dll
           DLLSG mod/DisableNvidiaSignatureChecks.reg
           DLLSG mod/RestoreNvidiaSignatureChecks.reg
-        key: optiscaler-${{ matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_filename || needs.check-versions.outputs.latest_filename }}-${{ hashFiles('Dll version/nvngx.ini') }}
+        key: optiscaler-${{ matrix.build_type }}-${{ matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_filename || needs.check-versions.outputs.latest_filename }}-${{ hashFiles('Dll version/nvngx.ini') }}
         restore-keys: |
-          optiscaler-${{ matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_filename || needs.check-versions.outputs.latest_filename }}-
+          optiscaler-${{ matrix.build_type }}-${{ matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_filename || needs.check-versions.outputs.latest_filename }}-
+          optiscaler-${{ matrix.build_type }}-
           optiscaler-
 
     - name: Download and extract OptiScaler
-      if: steps.cache-optiscaler.outputs.cache-hit != 'true' && ((matrix.build_type == 'nightly' && needs.check-versions.outputs.should_build_nightly == 'true') || (matrix.build_type == 'latest' && needs.check-versions.outputs.should_build_latest == 'true'))
+      if: matrix.build_type == 'custom' || steps.cache-optiscaler.outputs.cache-hit != 'true'
       shell: powershell
       run: |
-        $downloadUrl = "${{ matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_download_url || needs.check-versions.outputs.latest_download_url }}"
-        $version = "${{ matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_version || needs.check-versions.outputs.latest_version }}"
+        # Determine download URL, version, and filename based on build type
+        if ("${{ matrix.build_type }}" -eq "custom") {
+            $downloadUrl = "${{ needs.check-versions.outputs.custom_download_url }}"
+            $version = "${{ needs.check-versions.outputs.custom_version }}"
+            $fileName = "${{ needs.check-versions.outputs.custom_filename }}"
+        } elseif ("${{ matrix.build_type }}" -eq "nightly") {
+            $downloadUrl = "${{ needs.check-versions.outputs.nightly_download_url }}"
+            $version = "${{ needs.check-versions.outputs.nightly_version }}"
+            $fileName = "${{ needs.check-versions.outputs.nightly_filename }}"
+        } else {
+            $downloadUrl = "${{ needs.check-versions.outputs.latest_download_url }}"
+            $version = "${{ needs.check-versions.outputs.latest_version }}"
+            $fileName = "${{ needs.check-versions.outputs.latest_filename }}"
+        }
+        
         $buildType = "${{ matrix.build_type }}"
         
         Write-Host "Downloading OptiScaler $buildType ($version) from: $downloadUrl"
+        Write-Host "Expected filename: $fileName"
         
         # Create temp directory
         $tempDir = "$env:TEMP\optiscaler"
         New-Item -ItemType Directory -Path $tempDir -Force
         
         # Download file with retry logic
-        $fileName = Split-Path $downloadUrl -Leaf
         $filePath = Join-Path $tempDir $fileName
         
         $maxRetries = 3
@@ -488,22 +585,38 @@ jobs:
         }
 
     - name: Update version in Inno Setup script
-      if: (matrix.build_type == 'nightly' && needs.check-versions.outputs.should_build_nightly == 'true') || (matrix.build_type == 'latest' && needs.check-versions.outputs.should_build_latest == 'true')
       shell: powershell
       run: |
-        $optiVersion = "${{ matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_version || needs.check-versions.outputs.latest_version }}"
+        # Determine version and filename based on build type
+        if ("${{ matrix.build_type }}" -eq "custom") {
+            $optiVersion = "${{ needs.check-versions.outputs.custom_version }}"
+            $filename = "${{ needs.check-versions.outputs.custom_filename }}"
+        } elseif ("${{ matrix.build_type }}" -eq "nightly") {
+            $optiVersion = "${{ needs.check-versions.outputs.nightly_version }}"
+            $filename = "${{ needs.check-versions.outputs.nightly_filename }}"
+        } else {
+            $optiVersion = "${{ needs.check-versions.outputs.latest_version }}"
+            $filename = "${{ needs.check-versions.outputs.latest_filename }}"
+        }
+        
         $buildType = "${{ matrix.build_type }}"
-        $filename = "${{ matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_filename || needs.check-versions.outputs.latest_filename }}"
         
         Write-Host "OptiScaler version: $optiVersion ($buildType)"
         Write-Host "OptiScaler filename: $filename"
         
         # Extract version from filename for output naming
-        # Example: OptiScaler_v0.7.7-pre12_20250630.7z -> dlss-enabler-setup_v0.7.7-pre12_20250630.exe
         $outputName = "dlss-enabler-setup_unknown"
         if ($filename -match "OptiScaler_(.+)\.(?:7z|zip)$") {
             $versionPart = $matches[1]
             $outputName = "dlss-enabler-setup_$versionPart"
+        } elseif ($buildType -eq "custom") {
+            # For custom builds, use custom version or timestamp
+            if ($optiVersion -ne "") {
+                $outputName = "dlss-enabler-setup_$optiVersion"
+            } else {
+                $timestamp = Get-Date -Format "yyyyMMddHHmmss"
+                $outputName = "dlss-enabler-setup_custom_$timestamp"
+            }
         }
         
         $issFile = "DLSS enabler.iss"
@@ -528,37 +641,33 @@ jobs:
         Write-Host "DLSS Enabler version: $dlssVersion"
 
     - name: Setup Inno Setup
-      if: (matrix.build_type == 'nightly' && needs.check-versions.outputs.should_build_nightly == 'true') || (matrix.build_type == 'latest' && needs.check-versions.outputs.should_build_latest == 'true')
       uses: Minionguyjpro/Inno-Setup-Action@v1.2.7
       with:
         # Use default settings - no code signing for now
         path: "DLSS enabler.iss"
 
     - name: Get current date
-      if: (matrix.build_type == 'nightly' && needs.check-versions.outputs.should_build_nightly == 'true') || (matrix.build_type == 'latest' && needs.check-versions.outputs.should_build_latest == 'true')
       id: date
       run: echo "date=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')" >> $env:GITHUB_OUTPUT
 
     - name: Upload build artifacts
-      if: (matrix.build_type == 'nightly' && needs.check-versions.outputs.should_build_nightly == 'true') || (matrix.build_type == 'latest' && needs.check-versions.outputs.should_build_latest == 'true')
       uses: actions/upload-artifact@v4
       with:
-        name: dlss-enabler-${{ matrix.build_type }}-${{ matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_filename || needs.check-versions.outputs.latest_filename }}
+        name: dlss-enabler-${{ matrix.build_type }}-${{ matrix.build_type == 'custom' && needs.check-versions.outputs.custom_filename || matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_filename || needs.check-versions.outputs.latest_filename }}
         path: Output/*.exe
         retention-days: 30
 
     - name: Create release
-      if: (matrix.build_type == 'nightly' && needs.check-versions.outputs.should_build_nightly == 'true') || (matrix.build_type == 'latest' && needs.check-versions.outputs.should_build_latest == 'true')
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ matrix.build_type == 'nightly' && 'nightly' || needs.check-versions.outputs.latest_version }}
-        name: "DLSS Enabler (${{ matrix.build_type }}) - OptiScaler ${{ matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_version || needs.check-versions.outputs.latest_version }}"
+        tag_name: ${{ matrix.build_type == 'custom' && 'custom' || matrix.build_type == 'nightly' && 'nightly' || needs.check-versions.outputs.latest_version }}
+        name: "DLSS Enabler (${{ matrix.build_type }}) - OptiScaler ${{ matrix.build_type == 'custom' && needs.check-versions.outputs.custom_version || matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_version || needs.check-versions.outputs.latest_version }}"
         body: |
-          🚀 **DLSS Enabler** - ${{ matrix.build_type }} build with OptiScaler ${{ matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_version || needs.check-versions.outputs.latest_version }}
+          🚀 **DLSS Enabler** - ${{ matrix.build_type }} build with OptiScaler ${{ matrix.build_type == 'custom' && needs.check-versions.outputs.custom_version || matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_version || needs.check-versions.outputs.latest_version }}
           
           ## 📦 What's Included
-          - **OptiScaler Version**: `${{ matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_version || needs.check-versions.outputs.latest_version }}` (${{ matrix.build_type }})
-          - **OptiScaler Package**: `${{ matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_filename || needs.check-versions.outputs.latest_filename }}`
+          - **OptiScaler Version**: `${{ matrix.build_type == 'custom' && needs.check-versions.outputs.custom_version || matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_version || needs.check-versions.outputs.latest_version }}` (${{ matrix.build_type }})
+          - **OptiScaler Package**: `${{ matrix.build_type == 'custom' && needs.check-versions.outputs.custom_filename || matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_filename || needs.check-versions.outputs.latest_filename }}`
           - **XeSS Library**: Latest from OptiScaler package
           - **AMD FidelityFX**: Latest from OptiScaler package  
           - **DLSSG to FSR3 Module**: Nukem9's mod (version 0.130)
@@ -573,8 +682,8 @@ jobs:
           
           ## 📋 Release Information
           - **Build Date**: ${{ steps.date.outputs.date }}
-          - **OptiScaler**: ${{ matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_version || needs.check-versions.outputs.latest_version }} (${{ matrix.build_type }})
-          - **Package**: ${{ matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_filename || needs.check-versions.outputs.latest_filename }}
+          - **OptiScaler**: ${{ matrix.build_type == 'custom' && needs.check-versions.outputs.custom_version || matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_version || needs.check-versions.outputs.latest_version }} (${{ matrix.build_type }})
+          - **Package**: ${{ matrix.build_type == 'custom' && needs.check-versions.outputs.custom_filename || matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_filename || needs.check-versions.outputs.latest_filename }}
           - **Auto-built**: This release was automatically generated when a new OptiScaler version was detected
           
           ## 🎮 Compatibility
@@ -584,13 +693,13 @@ jobs:
           - For NVIDIA GPU users: Use the standard installation
           - For AMD/Intel GPU users: Select "Experimental support" during installation
           - Some antivirus software may flag the installer as false positive due to DLL injection techniques
-          - **${{ matrix.build_type == 'nightly' && 'This is a nightly build - may contain experimental features' || 'This is a stable release' }}**
+          - **${{ matrix.build_type == 'nightly' && 'This is a nightly build - may contain experimental features' || matrix.build_type == 'custom' && 'This is a custom build from user-provided download URL' || 'This is a stable release' }}**
           
           ---
-          Built with OptiScaler `${{ matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_version || needs.check-versions.outputs.latest_version }}` (${{ matrix.build_type }})
+          Built with OptiScaler `${{ matrix.build_type == 'custom' && needs.check-versions.outputs.custom_version || matrix.build_type == 'nightly' && needs.check-versions.outputs.nightly_version || needs.check-versions.outputs.latest_version }}` (${{ matrix.build_type }})
         files: Output/*.exe
         draft: false
-        prerelease: ${{ matrix.build_type == 'nightly' }}
+        prerelease: ${{ matrix.build_type == 'nightly' || matrix.build_type == 'custom' }}
         generate_release_notes: true
         fail_on_unmatched_files: true
         make_latest: ${{ matrix.build_type == 'latest' }}
