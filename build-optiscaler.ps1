@@ -3,7 +3,7 @@
 
 param(
     [string]$OptiScalerPath = "",
-    [string]$OptiScalerVersion = "v0.7.7-pre12",
+    [string]$OptiScalerVersion = "v0.9.0-pre9",
     [switch]$DownloadLatest = $false
 )
 
@@ -58,9 +58,15 @@ Write-Host "Copying OptiScaler files to build structure..." -ForegroundColor Yel
 $FileMappings = @{
     "$TempDir\OptiScaler.dll" = "$DllVersionDir\dlss-enabler-upscaler.dll"
     "$TempDir\OptiScaler.ini" = "$DllVersionDir\OptiScaler.ini"
+    "$TempDir\libxell.dll" = "$DllVersionDir\libxell.dll"
     "$TempDir\libxess.dll" = "$DllVersionDir\libxess.dll"
     "$TempDir\libxess_dx11.dll" = "$DllVersionDir\libxess_dx11.dll"
+    "$TempDir\libxess_fg.dll" = "$DllVersionDir\libxess_fg.dll"
+    "$TempDir\amd_fidelityfx_denoiser_dx12.dll" = "$DllVersionDir\amd_fidelityfx_denoiser_dx12.dll"
     "$TempDir\amd_fidelityfx_dx12.dll" = "$DllVersionDir\amd_fidelityfx_dx12.dll"
+    "$TempDir\amd_fidelityfx_framegeneration_dx12.dll" = "$DllVersionDir\amd_fidelityfx_framegeneration_dx12.dll"
+    "$TempDir\amd_fidelityfx_radiancecache_dx12.dll" = "$DllVersionDir\amd_fidelityfx_radiancecache_dx12.dll"
+    "$TempDir\amd_fidelityfx_upscaler_dx12.dll" = "$DllVersionDir\amd_fidelityfx_upscaler_dx12.dll"
     "$TempDir\amd_fidelityfx_vk.dll" = "$DllVersionDir\amd_fidelityfx_vk.dll"
     "$TempDir\D3D12_Optiscaler\D3D12Core.dll" = "$DllVersionDir\D3D12Core.dll"
     "$TempDir\Licenses\XeSS_LICENSE.txt" = "$DllVersionDir\XeSS_LICENSE.txt"

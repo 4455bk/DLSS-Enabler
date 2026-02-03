@@ -116,6 +116,12 @@ Source: "Dll version\XeSS_LICENSE.txt"; DestDir: "{app}"; DestName: "XESS LICENS
 Source: "Dll version\XeSS_LICENSE.txt"; DestDir: "{app}/licenses"; DestName: "XESS LICENSE.txt"; Flags: ignoreversion skipifsourcedoesntexist; Components: upscalers
 Source: "Dll version\FidelityFX_LICENSE.md"; DestDir: "{app}/licenses"; Flags: ignoreversion skipifsourcedoesntexist; Components: upscalers
 Source: "Dll version\DirectX_LICENSE.txt"; DestDir: "{app}/licenses"; Flags: ignoreversion skipifsourcedoesntexist; Components: upscalers
+Source: "Dll version\libxell.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist; Components: upscalers
+Source: "Dll version\libxess_fg.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist; Components: upscalers
+Source: "Dll version\amd_fidelityfx_denoiser_dx12.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist; Components: upscalers
+Source: "Dll version\amd_fidelityfx_framegeneration_dx12.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist; Components: upscalers
+Source: "Dll version\amd_fidelityfx_radiancecache_dx12.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist; Components: upscalers
+Source: "Dll version\amd_fidelityfx_upscaler_dx12.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist; Components: upscalers
 
 ; main module
 Source: "Dll version\dlss-enabler.asi"; DestDir: "{app}/plugins"; DestName: "dlss-enabler.asi"; Flags: confirmoverwrite; Components: mainfiles/asiversion

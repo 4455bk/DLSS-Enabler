@@ -499,7 +499,14 @@ jobs:
             Write-Host "Copied OptiScaler.ini to: $targetIniPath"
         }
         
-        # Copy libxess.dll
+        # Copy Intel XeSS Dlls
+        $libxellFile = Get-ChildItem -Path $extractDir -Filter "libxell.dll" -Recurse | Select-Object -First 1
+        if ($libxellFile) {
+            $targetLibxellPath = "Dll version\libxell.dll"
+            Copy-Item -Path $libxellFile.FullName -Destination $targetLibxellPath -Force
+            Write-Host "Copied libxell.dll to: $targetLibxellPath"
+        }
+        
         $libxessFile = Get-ChildItem -Path $extractDir -Filter "libxess.dll" -Recurse | Select-Object -First 1
         if ($libxessFile) {
             $targetLibxessPath = "Dll version\libxess.dll"
@@ -507,12 +514,54 @@ jobs:
             Write-Host "Copied libxess.dll to: $targetLibxessPath"
         }
         
+        $libxessDx11File = Get-ChildItem -Path $extractDir -Filter "libxess_dx11.dll" -Recurse | Select-Object -First 1
+        if ($libxessDx11File) {
+            $targetLibxessDx11Path = "Dll version\libxess_dx11.dll"
+            Copy-Item -Path $libxessDx11File.FullName -Destination $targetLibxessDx11Path -Force
+            Write-Host "Copied libxess_dx11.dll to: $targetLibxessDx11Path"
+        }
+        
+        $libxessFgFile = Get-ChildItem -Path $extractDir -Filter "libxess_fg.dll" -Recurse | Select-Object -First 1
+        if ($libxessFgFile) {
+            $targetLibxessFgPath = "Dll version\libxess_fg.dll"
+            Copy-Item -Path $libxessFgFile.FullName -Destination $targetLibxessFgPath -Force
+            Write-Host "Copied libxess_fg.dll to: $targetLibxessFgPath"
+        }
+        
         # Copy AMD FidelityFX DLLs (newer versions from OptiScaler)
+        $amdDenoiserDx12File = Get-ChildItem -Path $extractDir -Filter "amd_fidelityfx_denoiser_dx12.dll" -Recurse | Select-Object -First 1
+        if ($amdDenoiserDx12File) {
+            $targetAmdDenoiserDx12Path = "Dll version\amd_fidelityfx_denoiser_dx12.dll"
+            Copy-Item -Path $amdDenoiserDx12File.FullName -Destination $targetAmdDenoiserDx12Path -Force
+            Write-Host "Copied amd_fidelityfx_denoiser_dx12.dll to: $targetAmdDenoiserDx12Path"
+        }
+        
         $amdDx12File = Get-ChildItem -Path $extractDir -Filter "amd_fidelityfx_dx12.dll" -Recurse | Select-Object -First 1
         if ($amdDx12File) {
             $targetAmdDx12Path = "Dll version\amd_fidelityfx_dx12.dll"
             Copy-Item -Path $amdDx12File.FullName -Destination $targetAmdDx12Path -Force
             Write-Host "Copied amd_fidelityfx_dx12.dll to: $targetAmdDx12Path"
+        }
+        
+        $amdFgDx12File = Get-ChildItem -Path $extractDir -Filter "amd_fidelityfx_framegeneration_dx12.dll" -Recurse | Select-Object -First 1
+        if ($amdFgDx12File) {
+            $targetAmdFgDx12Path = "Dll version\amd_fidelityfx_framegeneration_dx12.dll"
+            Copy-Item -Path $amdFgDx12File.FullName -Destination $targetAmdFgDx12Path -Force
+            Write-Host "Copied amd_fidelityfx_framegeneration_dx12.dll to: $targetAmdFgDx12Path"
+        }
+        
+        $amdRcDx12File = Get-ChildItem -Path $extractDir -Filter "amd_fidelityfx_radiancecache_dx12.dll" -Recurse | Select-Object -First 1
+        if ($amdRcDx12File) {
+            $targetAmdRcDx12Path = "Dll version\amd_fidelityfx_radiancecache_dx12.dll"
+            Copy-Item -Path $amdRcDx12File.FullName -Destination $targetAmdRcDx12Path -Force
+            Write-Host "Copied amd_fidelityfx_radiancecache_dx12.dll to: $targetAmdRcDx12Path"
+        }
+        
+        $amdUpscalerDx12File = Get-ChildItem -Path $extractDir -Filter "amd_fidelityfx_upscaler_dx12.dll" -Recurse | Select-Object -First 1
+        if ($amdUpscalerDx12File) {
+            $targetAmdUpscalerDx12Path = "Dll version\amd_fidelityfx_upscaler_dx12.dll"
+            Copy-Item -Path $amdUpscalerDx12File.FullName -Destination $targetAmdUpscalerDx12Path -Force
+            Write-Host "Copied amd_fidelityfx_upscaler_dx12.dll to: $targetAmdUpscalerDx12Path"
         }
         
         $amdVkFile = Get-ChildItem -Path $extractDir -Filter "amd_fidelityfx_vk.dll" -Recurse | Select-Object -First 1
@@ -565,8 +614,15 @@ jobs:
         $filesToCheck = @(
             "Dll version\dlss-enabler-upscaler.dll",
             "Dll version\OptiScaler.ini",
+            "Dll version\libxell.dll",
             "Dll version\libxess.dll",
+            "Dll version\libxess_dx11.dll",
+            "Dll version\libxess_fg.dll",
+            "Dll version\amd_fidelityfx_denoiser_dx12.dll",
             "Dll version\amd_fidelityfx_dx12.dll",
+            "Dll version\amd_fidelityfx_framegeneration_dx12.dll",
+            "Dll version\amd_fidelityfx_radiancecache_dx12.dll",
+            "Dll version\amd_fidelityfx_upscaler_dx12.dll",
             "Dll version\amd_fidelityfx_vk.dll",
             "Dll version\XeSS_LICENSE.txt",
             "Dll version\FidelityFX_LICENSE.md",
