@@ -1,10 +1,6 @@
 name: Build DLSS-Enabler Installer
 
 on:
-  # Trigger on schedule to check for new OptiScaler releases every 3 hours
-  schedule:
-    - cron: '0 */3 * * *'  # Run every 3 hours
-  
   # Allow manual trigger
   workflow_dispatch:
     inputs:
